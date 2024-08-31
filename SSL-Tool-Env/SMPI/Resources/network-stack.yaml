@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  STACKCIDR:
+    Type: String
+    Default: "192.168.20.0/24"
+  STACKSUBNET:
+    Type: String
+    Default: "192.168.20.0/24"
+  STACKVPCNIC:
+    Type: String
+    Default: "192.168.20.5"
+  HostedZoneName:
+    Type: String
+    Default: "bugzzy16.xyz"
+
+Resources:
+  SMPIVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref STACKCIDR
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: SSL-Mon-Project-Infra
+
+  SMPISub01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref SMPIVPC
+      CidrBlock: !Ref STACKSUBNET
+      AvailabilityZone: ap-southeast-1a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: SMPI-Sub1
+
+  SMPISG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Web Servers
+      GroupName: SMPISG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 0
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: SMPISG
+      VpcId: !Ref SMPIVPC
+
+  WebServer01NI:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: Web Server 01
+      GroupSet:
+        - !Ref SMPISG
+      PrivateIpAddress: !Ref STACKVPCNIC
+      SubnetId: !Ref SMPISub01
+      Tags:
+        - Key: Name
+          Value: WebServer01NI
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: SMPI-IGW
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref SMPIVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref SMPIVPC
+      Tags:
+        - Key: Name
+          Value: SMPI-RouteTable
+
+  RouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SMPISub01
+      RouteTableId: !Ref PublicRouteTable
+
+  Route:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  WebServer01:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: ap-southeast-1a
+      ImageId: ami-0d07675d294f17973
+      InstanceType: t2.micro
+      KeyName: ABC-common
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref WebServer01NI
+          DeviceIndex: '0'
+      Tags:
+        - Key: Name
+          Value: ABC Moodle Web Server 01
+
+  DNSHostZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Ref HostedZoneName
+
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref DNSHostZone
+      Name: !Sub "${HostedZoneName}."
+      ResourceRecords:
+        - !GetAtt WebServer01.PublicIp
+      TTL: 300
+      Type: A
