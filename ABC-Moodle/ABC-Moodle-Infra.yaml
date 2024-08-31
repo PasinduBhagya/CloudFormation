@@ -1,0 +1,348 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  ABCMoodle:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 192.168.10.0/24
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle
+
+  ABCMoodlePrivateSub01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ABCMoodle
+      CidrBlock: 192.168.10.0/28
+      AvailabilityZone: ap-southeast-1a
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle-Private-Sub1
+
+  ABCMoodlePrivateSub02:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ABCMoodle
+      CidrBlock: 192.168.10.16/28
+      AvailabilityZone: ap-southeast-1b
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle-Private-Sub2
+
+  ABCMoodlePublicSub01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ABCMoodle
+      CidrBlock: 192.168.10.32/28
+      AvailabilityZone: ap-southeast-1a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle-Public-Sub1
+
+  ABCMoodlePublicSub02:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref ABCMoodle
+      CidrBlock: 192.168.10.48/28
+      AvailabilityZone: ap-southeast-1b
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle-Public-Sub1
+
+  ABCMoodleWebSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Web Servers
+      GroupName: ABCMoodleWebSG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 0
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle-Web-SG
+      VpcId: !Ref ABCMoodle
+
+  ABCMoodleDBSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Database Servers
+      GroupName: ABCMoodleDBSG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref ABCMoodleWebSG
+
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 0
+          CidrIp: 0.0.0.0/0
+
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle-DB-SG
+      VpcId: !Ref ABCMoodle
+
+  WebServer01NI:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: ABC Moodle Web Server 01
+      GroupSet:
+        - !Ref ABCMoodleWebSG
+      PrivateIpAddress: 192.168.10.37
+      SubnetId: !Ref ABCMoodlePublicSub01
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle-WebServer-01
+
+  WebServer02NI:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: ABC Moodle Web Server 02
+      GroupSet:
+        - !Ref ABCMoodleWebSG
+      PrivateIpAddress: 192.168.10.54
+      SubnetId: !Ref ABCMoodlePublicSub02
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle-WebServer-02
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle-IG
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref ABCMoodle
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref ABCMoodle
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle-RouteTable
+
+  RouteTableAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref ABCMoodlePublicSub01
+      RouteTableId: !Ref PublicRouteTable
+
+  RouteTableAssociation2:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref ABCMoodlePublicSub02
+      RouteTableId: !Ref PublicRouteTable
+
+  Route:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  FileSystemResource:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      BackupPolicy:
+        Status: ENABLED
+      Encrypted: true
+      LifecyclePolicies:
+        - TransitionToIA: AFTER_30_DAYS
+        - TransitionToPrimaryStorageClass: AFTER_1_ACCESS
+      FileSystemTags:
+        - Key: Name
+          Value: ABC-Moodle
+
+  ABCMoodleEFSSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for EFS
+      GroupName: ABCMoodleEFSSG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          SourceSecurityGroupId: !Ref ABCMoodleWebSG
+      Tags:
+        - Key: Name
+          Value: ABC-Moodle-EFS-SG
+      VpcId: !Ref ABCMoodle
+
+  MountTargetResource1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      SubnetId: !Ref ABCMoodlePrivateSub01
+      SecurityGroups:
+        - !Ref ABCMoodleEFSSG
+
+  MountTargetResource2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      SubnetId: !Ref ABCMoodlePrivateSub02
+      SecurityGroups:
+        - !Ref ABCMoodleEFSSG
+
+  AccessPointResource:
+    Type: AWS::EFS::AccessPoint
+    Properties:
+      FileSystemId: !Ref FileSystemResource
+      PosixUser:
+        Uid: '1000'
+        Gid: '1000'
+      RootDirectory:
+        CreationInfo:
+          OwnerGid: '1000'
+          OwnerUid: '1000'
+          Permissions: '0755'
+        Path: /webcontent
+
+  MoodleDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for RDS Moodle DB
+      DBSubnetGroupName: moodlebbsubnetgroup
+      SubnetIds:
+        - !Ref ABCMoodlePrivateSub01
+        - !Ref ABCMoodlePrivateSub02  
+
+  MoodleDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      Engine: mysql
+      EngineVersion: 8.0.32
+      MasterUsername: admin
+      DBInstanceIdentifier: "ABC-Moodle-DB"
+      MasterUserPassword: Abc123456
+      PubliclyAccessible: false
+      DBSubnetGroupName: !Ref MoodleDBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref ABCMoodleDBSG
+
+  WebServer01:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: ap-southeast-1a
+      ImageId: ami-0497a974f8d5dcef8
+      InstanceType: t2.micro
+      KeyName: ABC-common
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref WebServer01NI
+          DeviceIndex: '0'
+      UserData: !Base64
+        Fn::Sub: |
+          #!/bin/bash
+          sudo apt update -y
+          sudo apt install apache2 -y
+          sudo systemctl start apache2
+          sudo systemctl enable apache2
+          sudo apt-get -y install git binutils rustc cargo pkg-config libssl-dev
+          git clone https://github.com/aws/efs-utils
+          cd efs-utils
+          ./build-deb.sh
+          sudo apt-get -y install ./build/amazon-efs-utils*deb
+          sudo mkdir -p /var/www/html/moodle
+          sudo mount -t efs -o tls,accesspoint=${AccessPointResource} ${FileSystemResource}:/webcontent /var/www/html/moodle
+
+      Tags:
+        - Key: Name
+          Value: ABC Moodle Web Server 01
+
+  WebServer02:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: ap-southeast-1b
+      ImageId: ami-0497a974f8d5dcef8
+      InstanceType: t2.micro
+      KeyName: ABC-common
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref WebServer02NI
+          DeviceIndex: '0'
+      UserData: !Base64
+        Fn::Sub: |
+          #!/bin/bash
+          sudo apt update -y
+          sudo apt install apache2 -y
+          sudo systemctl start apache2
+          sudo systemctl enable apache2
+          sudo apt-get -y install git binutils rustc cargo pkg-config libssl-dev
+          git clone https://github.com/aws/efs-utils
+          cd efs-utils
+          ./build-deb.sh
+          sudo apt-get -y install ./build/amazon-efs-utils*deb
+          sudo mkdir -p /var/www/html/moodle
+          sudo mount -t efs -o tls,accesspoint=${AccessPointResource} ${FileSystemResource}:/webcontent /var/www/html/moodle
+      Tags:
+        - Key: Name
+          Value: ABC Moodle Web Server 02
+
+  WebServerTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: ABC-Moodle-Web-TG
+      TargetType: instance
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref ABCMoodle
+      Targets:
+        - Id: !Ref WebServer01
+        - Id: !Ref WebServer02
+  
+  Loadbalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: ABC-Moodle-Web-LB
+      Scheme: internet-facing
+      Subnets:
+        - !Ref ABCMoodlePublicSub01
+        - !Ref ABCMoodlePublicSub02
+      Type: application
+      SecurityGroups:
+        - !Ref ABCMoodleWebSG
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref WebServerTargetGroup
+      LoadBalancerArn: !Ref Loadbalancer
+      Port: 80
+      Protocol: HTTP
+
+
+
+
+
