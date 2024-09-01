@@ -4,6 +4,40 @@
 
   tasks:
     - name: Install Apache Web Server and dependecies
-    - name: Allow services from firewall
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: latest
+      loop:
+        - httpd
+        - mod_ssl
+
+    - name: Createing Documentroot
+      ansible.builtin.file:
+        path: /var/www/html/bugzzy16
+        state: directory
+        owner: apache
+        group: apache
+        mode: 0755
+
+    - name: Copy WEB Content
+      ansible.builtin.copy:
+        src: files/index.html
+        dest: /var/www/html/bugzzy16
+        owner: apache
+        group: apache
+        mode: 0644
+
     - name: Copy configuration files
+      ansible.builtin.copy:
+        src: files/example.bugzzy16.xyz.conf
+        dest: /etc/httpd/conf.d/example.bugzzy16.xyz.conf
+        owner: root
+        group: root
+        mode: 0644
+
     - name: Start and Enable Apache Web Service
+      ansible.builtin.service:
+        name: httpd
+        state: started
+        enabled: true
+    
