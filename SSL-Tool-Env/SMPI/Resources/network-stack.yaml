@@ -122,7 +122,7 @@ Resources:
       AvailabilityZone: ap-southeast-1a
       ImageId: ami-0d07675d294f17973
       InstanceType: t2.micro
-      KeyName: ABC-common
+      KeyName: Common
       NetworkInterfaces:
         - NetworkInterfaceId: !Ref WebServer01NI
           DeviceIndex: '0'
