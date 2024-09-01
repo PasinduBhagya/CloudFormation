@@ -13,6 +13,13 @@ Parameters:
   HostedZoneName:
     Type: String
     Default: "bugzzy16.xyz"
+  HostedDomainName:
+    Type: String
+    Default: "example.bugzzy16.xyz"
+  DNSHostZone: 
+    Type: String
+    Default: "Z00859063QNUITC6H3TGS"
+  
 
 Resources:
   SMPIVPC:
@@ -121,18 +128,13 @@ Resources:
           DeviceIndex: '0'
       Tags:
         - Key: Name
-          Value: ABC Moodle Web Server 01
-
-  DNSHostZone:
-    Type: AWS::Route53::HostedZone
-    Properties:
-      Name: !Ref HostedZoneName
+          Value: SMPI-WebServer01
 
   DNSRecord:
     Type: AWS::Route53::RecordSet
     Properties:
       HostedZoneId: !Ref DNSHostZone
-      Name: !Sub "${HostedZoneName}."
+      Name: !Sub "${HostedDomainName}."
       ResourceRecords:
         - !GetAtt WebServer01.PublicIp
       TTL: 300

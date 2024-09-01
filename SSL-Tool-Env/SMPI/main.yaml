@@ -3,10 +3,9 @@ AWSTemplateFormatVersion: '2010-09-09'
 Parameters:
   BucketName:
     Type: String
-    Default: "https://pasindubhagyacloudformationfiles.s3.ap-southeast-1.amazonaws.com/SMPI"
 
 Resources:
   NetworkStack:
     Type: 'AWS::CloudFormation::Stack'
     Properties:
-      TemplateURL: !Sub '${BucketName}/Resources/network-stack.yaml'
+      TemplateURL: !Sub 'https://${BucketName}.s3.ap-southeast-1.amazonaws.com/SMPI/Resources/network-stack.yaml'

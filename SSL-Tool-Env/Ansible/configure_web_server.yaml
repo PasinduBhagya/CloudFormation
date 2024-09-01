@@ -1,0 +1,9 @@
+---
+- name: Installing and configuring Web Server
+  hosts: webserver
+
+  tasks:
+    - name: Install Apache Web Server and dependecies
+    - name: Allow services from firewall
+    - name: Copy configuration files
+    - name: Start and Enable Apache Web Service

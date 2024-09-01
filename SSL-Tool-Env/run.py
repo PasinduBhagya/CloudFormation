@@ -54,13 +54,14 @@ def deleteBucket():
     return True
    
 def createStack():
+    print("INFO: Starting stack creation")
     cloudformation_client = boto3.client('cloudformation')
     with open(cloudformationMainFilePath, 'r') as f:
         template_body = f.read()
 
     try:
         response = cloudformation_client.create_stack(
-            StackName='MyStack',
+            StackName='SMPI',
             TemplateBody=template_body,
             Capabilities=['CAPABILITY_NAMED_IAM'],
             Parameters=[
@@ -70,11 +71,12 @@ def createStack():
                 }
             ]
         )
-        print(response)
+        print("INFO: Stack ID " + response['StackId'])
     except ClientError as e:
         logging.error(e)
-        return False    
-
+        return False   
+    
+    return True 
 
 
 if __name__ == "__main__":
@@ -82,7 +84,9 @@ if __name__ == "__main__":
         print("INFO: Bucket created successfully.")
     if uploadFiles():
         print("INFO: Uploading files successful.")
-
+    if createStack():
+        print("INFO: Stack created successfully.")
+        
     print(f'''{"="*100}\nEnter "Delete" if you want to delete the Bucket {randomS3BucketName}\n{"="*100}''')
     print("> ", end="")
     if input() == "Delete":
